@@ -1,0 +1,8 @@
+# Apply LAST, after compose.yml and any existing staging overrides.
+# Opt-in only: the base/local/production build configuration is unchanged.
+services:
+  jointops-app:
+    image: ${JOINTOPS_STAGING_IMAGE:?Pass the published staging image digest}
+    build: !reset null
+    # Pull explicitly before cutover; never fetch a different image at startup.
+    pull_policy: never

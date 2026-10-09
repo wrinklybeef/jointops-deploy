@@ -1,0 +1,3 @@
+# New deployment-only WSGI server. The application lock remains unchanged.
+# Gunicorn 26.2.0 has no additional dependencies for its built-in gthread worker.
+gunicorn==26.2.0

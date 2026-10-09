@@ -1,0 +1,6 @@
+# Opt-in only: preserve compose.yml and any existing host overrides.
+services:
+  jointops-app:
+    image: ${JOINTOPS_PRODUCTION_IMAGE:?Pass the published production image digest}
+    build: !reset null
+    pull_policy: never

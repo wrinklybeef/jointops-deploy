@@ -1,0 +1,87 @@
+name: jointops
+
+services:
+  jointops-app:
+    image: jointops365:v1-py31116
+    platform: linux/amd64
+    build:
+      context: .
+      target: production
+    init: true
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${JOINTOPS_HTTP_PORT:-8000}:8000"
+    environment:
+      JOINTOPS_SESSION_SECRET: ${JOINTOPS_SESSION_SECRET:?Set JOINTOPS_SESSION_SECRET}
+      JOINTOPS_DATABASE_URL: ${JOINTOPS_DATABASE_URL:?Set JOINTOPS_DATABASE_URL}
+      JOINTOPS_SESSION_COOKIE_SECURE: ${JOINTOPS_SESSION_COOKIE_SECURE:-true}
+      JOINTOPS_AUTH_CLIENT_ID: ${JOINTOPS_AUTH_CLIENT_ID:?Set JOINTOPS_AUTH_CLIENT_ID}
+      JOINTOPS_AUTH_CLIENT_SECRET: ${JOINTOPS_AUTH_CLIENT_SECRET:?Set JOINTOPS_AUTH_CLIENT_SECRET}
+      JOINTOPS_AUTH_AUTHORITY: ${JOINTOPS_AUTH_AUTHORITY:?Set JOINTOPS_AUTH_AUTHORITY}
+      JOINTOPS_AUTH_REDIRECT_URI: ${JOINTOPS_AUTH_REDIRECT_URI:?Set JOINTOPS_AUTH_REDIRECT_URI}
+      JOINTOPS_AUTH_POST_LOGOUT_REDIRECT_URI: ${JOINTOPS_AUTH_POST_LOGOUT_REDIRECT_URI:-}
+      JOINTOPS_M365_CLIENT_ID: ${JOINTOPS_M365_CLIENT_ID:?Set JOINTOPS_M365_CLIENT_ID}
+      JOINTOPS_M365_CERT_PATH: /run/secrets/jointops-m365.pfx
+      JOINTOPS_M365_CERT_PASSWORD: ${JOINTOPS_M365_CERT_PASSWORD:?Set JOINTOPS_M365_CERT_PASSWORD}
+      JOINTOPS_M365_ADMIN_CONSENT_REDIRECT_URI: ${JOINTOPS_M365_ADMIN_CONSENT_REDIRECT_URI:?Set JOINTOPS_M365_ADMIN_CONSENT_REDIRECT_URI}
+      JOINTOPS_ONBOARDING_BASE_URL: ${JOINTOPS_ONBOARDING_BASE_URL:?Set JOINTOPS_ONBOARDING_BASE_URL}
+      JOINTOPS_FRONTEND_URL: ${JOINTOPS_FRONTEND_URL:-}
+    volumes:
+      - type: bind
+        source: ${JOINTOPS_CERT_HOST_PATH:?Set an absolute JOINTOPS_CERT_HOST_PATH}
+        target: /run/secrets/jointops-m365.pfx
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m,mode=1777
+      - /home/jointops:rw,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=0700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 1810s
+    networks:
+      - database
+      - outbound
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: postgres:17.10-bookworm@sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - database
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres-data:
+
+networks:
+  database:
+    internal: true
+  outbound:
